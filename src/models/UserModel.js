@@ -36,6 +36,15 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
+    },
+    city: {
+      type: String,
+    },
+    district: {
+      type: String,
+    },
+    commune: {
+      type: String,
     }
   },
   {

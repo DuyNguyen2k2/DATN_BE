@@ -118,6 +118,7 @@ const getAllProduct = (limit, page, sort, filter) => {
   return new Promise(async (resolve, reject) => {
     try {
       const totalProduct = await Product.countDocuments();
+      let allProduct = [];
       if (filter) {
         const labelFilter = filter[0];
         const filterValue = filter[1];
@@ -156,7 +157,13 @@ const getAllProduct = (limit, page, sort, filter) => {
           totalPage: Math.ceil(totalProduct / limit),
         });
       }
-      const allProduct = await Product.find().limit(limit).skip(page * limit);
+      if (!limit) {
+        allProduct = await Product.find();
+      } else {
+        allProduct = await Product.find()
+          .limit(limit)
+          .skip(page * limit);
+      }
 
       resolve({
         status: "OK",
@@ -172,17 +179,55 @@ const getAllProduct = (limit, page, sort, filter) => {
   });
 };
 
+// const getAllProduct = (limit, page, sort, filter) => {
+//   return new Promise(async (resolve, reject) => {
+//     try {
+//       let query = Product.find();
+
+//       // Apply filter if provided
+//       if (filter) {
+//         const labelFilter = filter[0];
+//         const filterValue = filter[1];
+//         query = query.where(labelFilter).regex(new RegExp(filterValue, "i"));
+//       }
+
+//       // Apply sort if provided
+//       if (sort) {
+//         const objectSort = {};
+//         objectSort[sort[1]] = sort[0];
+//         query = query.sort(objectSort);
+//       }
+
+//       // Get total number of filtered products
+//       const totalProduct = await query.clone().countDocuments();
+
+//       // Apply pagination
+//       const allProduct = await query.limit(limit).skip(page * limit);
+
+//       resolve({
+//         status: "OK",
+//         message: "Get all product successfully",
+//         data: allProduct,
+//         total: totalProduct,
+//         pageCurrent: page + 1,
+//         totalPage: Math.ceil(totalProduct / limit),
+//       });
+//     } catch (e) {
+//       reject(e);
+//     }
+//   });
+// };
+
+
 const getAllType = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      
-      const allTypeProduct = await Product.distinct('type');
+      const allTypeProduct = await Product.distinct("type");
 
       resolve({
         status: "OK",
         message: "Get all type product successfully",
         data: allTypeProduct,
-       
       });
     } catch (e) {
       reject(e);

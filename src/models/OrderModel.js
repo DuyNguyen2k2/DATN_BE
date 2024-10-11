@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const orderSchema = new mongoose.Schema(
   {
-    orderItem: [
+    orderItems: [
       {
         name: {
           type: String,
@@ -35,6 +35,14 @@ const orderSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
+      district: {
+        type: String,
+        required: true,
+      },
+      commune: {
+        type: String,
+        required: true,
+      },
       city: {
         type: String,
         required: true,
@@ -53,10 +61,6 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
     shippingPrice: {
-      type: Number,
-      required: true,
-    },
-    taxPrice: {
       type: Number,
       required: true,
     },
