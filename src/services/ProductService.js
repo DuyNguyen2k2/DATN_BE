@@ -11,7 +11,6 @@ const createProduct = (newProduct) => {
       rating,
       description,
       discount,
-      selled,
     } = newProduct;
     try {
       const checkProduct = await Product.findOne({ name: name });
@@ -31,7 +30,6 @@ const createProduct = (newProduct) => {
         rating,
         description,
         discount,
-        selled,
       });
       if (createdProduct) {
         resolve({
@@ -243,7 +241,7 @@ const getOneProduct = (id) => {
       });
       if (product === null) {
         resolve({
-          status: "OK",
+          status: "ERR",
           message: "Product does not exists",
         });
       }
