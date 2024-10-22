@@ -51,11 +51,12 @@ const authUserMiddleware = (req, res, next) => {
         status: "ERROR",
       });
     }
-    if (user.isAdmin || user.id === userID) {
+    if (user) {
+      req.user = user; // Store user info for further processing if needed
       next();
     } else {
       return res.status(403).json({
-        message: "You are not admin",
+        message: "You are not authorized",
         status: "ERROR",
       });
     }

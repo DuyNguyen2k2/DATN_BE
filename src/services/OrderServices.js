@@ -33,7 +33,7 @@ const createOrder = (newOrder) => {
           },
           { new: true }
         );
-        console.log("productData", productData);
+        // console.log("productData", productData);
         if (productData) {
           const createdOrder = await Order.create({
             orderItems,
@@ -85,11 +85,34 @@ const createOrder = (newOrder) => {
   });
 };
 
+const getAllOrderDetails = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const order = await Order.find({
+        user: id,
+      });
+      if (order === null) {
+        resolve({
+          status: "ERR",
+          message: "Order does not exists",
+        });
+      }
+      resolve({
+        status: "OK",
+        message: "Get order successfully",
+        data: order,
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
 const getOrderDetails = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const order = await Order.findOne({
-        user: id,
+      const order = await Order.findById({
+        _id: id,
       });
       if (order === null) {
         resolve({
@@ -110,5 +133,6 @@ const getOrderDetails = (id) => {
 
 module.exports = {
   createOrder,
+  getAllOrderDetails,
   getOrderDetails,
 };
