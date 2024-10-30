@@ -80,7 +80,7 @@ const deleteProduct = (id) => {
       });
       if (checkProduct === null) {
         resolve({
-          status: "OK",
+          status: "ERR",
           message: "Product does not exists",
         });
       }
