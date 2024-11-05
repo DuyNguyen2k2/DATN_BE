@@ -30,3 +30,5 @@ mongoose
 app.listen(port, () => {
   console.log("Server is running in port: ", +port);
 });
+
+console.log('Client id', process.env.CLIENT_ID);

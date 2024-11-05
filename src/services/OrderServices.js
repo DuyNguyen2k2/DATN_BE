@@ -1,5 +1,6 @@
 const Order = require("../models/OrderModel");
 const Product = require("../models/ProductModel");
+const EmailServices = require("./EmailServices")
 
 const createOrder = (newOrder) => {
   return new Promise(async (resolve, reject) => {
@@ -16,9 +17,13 @@ const createOrder = (newOrder) => {
       city,
       phone,
       user,
+      isPaid,
+      paidAt,
+      email
     } = newOrder;
 
     try {
+      // Check product stock and update inventory
       const updatedProducts = await Promise.all(
         orderItems.map(async (order) => {
           const productData = await Product.findOneAndUpdate(
@@ -34,12 +39,13 @@ const createOrder = (newOrder) => {
             },
             { new: true }
           );
-          return productData ? null : order.product; // Trả về id sản phẩm nếu không đủ hàng
+          return productData ? null : order.product; // Return product ID if out of stock
         })
       );
 
       const outOfStockItems = updatedProducts.filter((item) => item !== null);
       
+      // Handle out-of-stock products
       if (outOfStockItems.length) {
         return resolve({
           status: "ERR",
@@ -47,7 +53,7 @@ const createOrder = (newOrder) => {
         });
       }
 
-      // Tạo đơn hàng sau khi cập nhật tồn kho thành công
+      // Create the order
       const createdOrder = await Order.create({
         orderItems,
         shippingAddress: {
@@ -63,19 +69,44 @@ const createOrder = (newOrder) => {
         shippingPrice,
         totalPrice,
         user: user,
+        isPaid,
+        paidAt
       });
+      
+      // Send confirmation email only if the order was created successfully
+      if (createdOrder) {
+        await EmailServices.sendEmail(
+          orderItems,
+          shippingPrice,
+          totalPrice,
+          fullName,
+          address,
+          district,
+          commune,
+          city,
+          phone,
+          email
+        );
 
-      return resolve({
-        status: "OK",
-        message: "Order created successfully",
-        data: createdOrder,
-      });
+        // Resolve the promise with success status
+        return resolve({
+          status: "OK",
+          message: "Order created successfully",
+          data: createdOrder,
+        });
+      } else {
+        return resolve({
+          status: "ERR",
+          message: "Order creation failed",
+        });
+      }
 
     } catch (e) {
       reject(e);
     }
   });
 };
+
 
 
 const getAllOrderDetails = (id) => {
