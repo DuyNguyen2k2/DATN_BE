@@ -10,6 +10,7 @@ const createProduct = async (req, res) => {
       !type ||
       !price ||
       !countInStock ||
+      !rating ||
       !description
     ) {
       return res.status(200).json({

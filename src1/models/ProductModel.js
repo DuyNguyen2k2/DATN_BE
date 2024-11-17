@@ -35,9 +35,6 @@ const productSchema = new mongoose.Schema(
     selled: {
       type: Number,
     },
-    review_count:{
-      type:Number,
-    },
   },
   { timestamps: true }
 );
