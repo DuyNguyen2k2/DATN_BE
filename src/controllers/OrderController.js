@@ -1,6 +1,7 @@
 const OrderServices = require("../services/OrderServices");
 
 const createOrder = async (req, res) => {
+  // console.log('check ok')
   try {
     const {
       paymentMethod,
@@ -13,7 +14,7 @@ const createOrder = async (req, res) => {
       city,
       phone,
     } = req.body;
-    
+    // console.log('req.body: ', req.body);
     if (
       !paymentMethod ||
       !itemsPrice ||
@@ -111,10 +112,30 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+const updateOrderStatus = async (req, res) => {
+  try {
+    const orderID = req.params.id;
+    const data = req.body;
+    if (!orderID) {
+      return res.status(200).json({
+        status: "ERR",
+        message: "The order ID is required",
+      });
+    }
+    const response = await OrderServices.updateOrderStatus(orderID, data);
+    return res.status(200).json(response);
+  } catch (e) {
+    return res.status(404).json({
+      message: e,
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getAllOrderDetails,
   getOrderDetails,
   cancelOrders,
   getAllOrders,
+  updateOrderStatus
 };

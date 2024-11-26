@@ -1,6 +1,6 @@
 const Order = require("../models/OrderModel");
 const Product = require("../models/ProductModel");
-const EmailServices = require("./EmailServices")
+const EmailServices = require("./EmailServices");
 
 const createOrder = (newOrder) => {
   return new Promise(async (resolve, reject) => {
@@ -19,9 +19,9 @@ const createOrder = (newOrder) => {
       user,
       isPaid,
       paidAt,
-      email
+      email,
     } = newOrder;
-
+    // console.log("new order: ", newOrder);
     try {
       // Check product stock and update inventory
       const updatedProducts = await Promise.all(
@@ -44,12 +44,14 @@ const createOrder = (newOrder) => {
       );
 
       const outOfStockItems = updatedProducts.filter((item) => item !== null);
-      
+
       // Handle out-of-stock products
       if (outOfStockItems.length) {
         return resolve({
           status: "ERR",
-          message: `Sản phẩm với id ${outOfStockItems.join(", ")} không đủ hàng`,
+          message: `Sản phẩm với id ${outOfStockItems.join(
+            ", "
+          )} không đủ hàng`,
         });
       }
 
@@ -70,12 +72,14 @@ const createOrder = (newOrder) => {
         totalPrice,
         user: user,
         isPaid,
-        paidAt
+        paidAt,
       });
-      
+
       // Send confirmation email only if the order was created successfully
+      // console.log('created order', createdOrder)
       if (createdOrder) {
-        await EmailServices.sendEmail(
+        console.log("check OK");
+        await EmailServices.sendMail(
           orderItems,
           shippingPrice,
           totalPrice,
@@ -100,14 +104,11 @@ const createOrder = (newOrder) => {
           message: "Order creation failed",
         });
       }
-
     } catch (e) {
       reject(e);
     }
   });
 };
-
-
 
 const getAllOrderDetails = (id) => {
   return new Promise(async (resolve, reject) => {
@@ -166,7 +167,6 @@ const getOrderDetails = (id) => {
 //       //   });
 //       // }
 
-
 //       // resolve({
 //       //   status: "OK",
 //       //   message: "Order deleted successfully",
@@ -176,7 +176,7 @@ const getOrderDetails = (id) => {
 //         const productData = await Product.findOneAndUpdate(
 //           {
 //             _id: order?.product,
-            
+
 //           },
 //           {
 //             $inc: {
@@ -238,18 +238,20 @@ const cancelOrders = (id, data) => {
           },
           { new: true }
         );
-        
+
         // Trả về null nếu không tìm thấy sản phẩm hoặc sản phẩm không tồn tại
         return productData ? null : order.product;
       });
 
       const result = await Promise.all(promises);
       const outOfStockItems = result.filter((item) => item !== null);
-      
+
       if (outOfStockItems.length) {
         return resolve({
           status: "ERR",
-          message: `Sản phẩm với id ${outOfStockItems.join(", ")} không tồn tại`,
+          message: `Sản phẩm với id ${outOfStockItems.join(
+            ", "
+          )} không tồn tại`,
         });
       }
 
@@ -266,7 +268,6 @@ const cancelOrders = (id, data) => {
         status: "OK",
         message: "Hủy đơn hàng thành công",
       });
-
     } catch (e) {
       reject(e);
     }
@@ -289,11 +290,39 @@ const getAllOrders = () => {
   });
 };
 
+const updateOrderStatus = (id, data) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const checkOrder = await Order.findOne({
+        _id: id,
+      });
+      if (checkOrder === null) {
+        resolve({
+          status: "OK",
+          message: "Order does not exists",
+        });
+      }
+
+      const updatedOrder = await Order.findByIdAndUpdate(id, data, {
+        new: true,
+      });
+
+      resolve({
+        status: "OK",
+        message: "Order updated successfully",
+        data: updatedOrder,
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
 
 module.exports = {
   createOrder,
   getAllOrderDetails,
   getOrderDetails,
   cancelOrders,
-  getAllOrders
+  getAllOrders,
+  updateOrderStatus,
 };

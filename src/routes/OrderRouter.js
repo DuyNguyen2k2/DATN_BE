@@ -9,4 +9,5 @@ router.get("/getAllOrderDetails/:id", authUserMiddleware, OrderController.getAll
 router.get("/getOrderDetails/:id", authUserMiddleware, OrderController.getOrderDetails);
 router.delete("/cancel-order/:id", authUserMiddleware, OrderController.cancelOrders);
 router.get("/getAllOrders", authMiddleware, OrderController.getAllOrders);
+router.put("/updateOrderStatus/:id", authUserMiddleware, OrderController.updateOrderStatus)
 module.exports = router;
