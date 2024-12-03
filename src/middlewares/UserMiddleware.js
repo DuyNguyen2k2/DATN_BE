@@ -19,7 +19,7 @@ const checkUserExist = async (req, res, next) => {
     } catch (error) {
         const data = {
             status: "ERR",
-            message: "Error checking user existence",
+            message: "Vui lòng đăng nhập để tiếp tục",
             error: error.message || error,
         };
         return responseService.sendResponse(res, 500, data);

@@ -1,6 +1,8 @@
 const UserService = require("../services/UserService");
+const EmailService = require("../services/EmailServices");
 const JwtService = require("../services/JwtService");
-
+const bcrypt = require("bcrypt");
+const crypto = require('crypto');
 
 const createUser = async (req, res) => {
   try {
@@ -187,6 +189,121 @@ const logout = async (req, res) => {
     });
   }
 };
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id; // Giả sử bạn đã có middleware xác thực và lưu userId vào req.user
+    // console.log("req.body:", JSON.stringify(req.body, null, 2));
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    // console.log('old password:', oldPassword)
+    // console.log('new password:', newPassword)
+    // console.log('confirm password:', confirmPassword)
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        status: "ERR",
+        message: "All fields are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        status: "ERR",
+        message: "New password and confirm password do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        status: "ERR",
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    // Lấy thông tin người dùng từ DB
+    const user = await UserService.getOneUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: "ERR",
+        message: "User not found",
+      });
+    }
+    // console.log('user', user);
+    // console.log("Old Password:", oldPassword);
+    // console.log("Stored Hashed Password:", user.password);
+    // Kiểm tra mật khẩu cũ
+    const isPasswordMatch = await bcrypt.compare(oldPassword, user.data.password);
+    console.log('isPasswordMatch', isPasswordMatch);
+    if (!isPasswordMatch) {
+      return res.status(400).json({
+        status: "ERR",
+        message: "Old password is incorrect",
+      });
+    }
+
+    // Hash mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // console.log('hashedPassword', hashedPassword);
+    // Cập nhật mật khẩu
+    await UserService.updateUser(userId, { password: hashedPassword });
+
+    return res.status(200).json({
+      status: "OK",
+      message: "Password changed successfully",
+    });
+  } catch (e) {
+    return res.status(500).json({
+      status: "ERR",
+      message: e.message || "Internal server error",
+    });
+  }
+};
+
+function generateRandomPassword(length = 8) {
+  return crypto.randomBytes(length).toString('hex').slice(0, length);
+}
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        status: "ERR",
+        message: "Email is required",
+      });
+    }
+
+    const user = await UserService.getUserByEmail(email); // Giả sử bạn có service tìm người dùng theo email
+    if (!user) {
+      return res.status(404).json({
+        status: "ERR",
+        message: "User not found with this email",
+      });
+    }
+
+    // Tạo mật khẩu ngẫu nhiên
+    const newPassword = generateRandomPassword();
+
+    // Hash mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    console.log('user', user);
+    // Cập nhật mật khẩu mới vào cơ sở dữ liệu
+    await UserService.updateUser(user.data._id, { password: hashedPassword });
+
+    // Gửi mật khẩu mới qua email
+    await EmailService.sendForgotPasswordMail(email, newPassword);
+
+    return res.status(200).json({
+      status: "OK",
+      message: "New password has been sent to your email",
+    });
+  } catch (e) {
+    return res.status(500).json({
+      status: "ERR",
+      message: e.message || "Internal server error",
+    });
+  }
+}
+
 module.exports = {
   createUser,
   loginUser,
@@ -197,4 +314,6 @@ module.exports = {
   refreshToken,
   logout,
   deleteManyUsers,
+  changePassword,
+  forgotPassword,
 };

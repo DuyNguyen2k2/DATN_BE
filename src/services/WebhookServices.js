@@ -63,6 +63,7 @@ class WebhookService {
         };
       }
     }
+
     const availabilityQuestionRegex =
       /(bạn\s+|cửa\s+hàng\s+có\s+bán\s+|có\s+bán\s+)(sản\s+phẩm\s+)?([a-zA-Z0-9\s]+)\s*(không|\?|\s)*$/i;
     const availabilityMatch = availabilityQuestionRegex.exec(intentName);
@@ -81,7 +82,7 @@ class WebhookService {
         const productVariants = products.map((p) => p.name).join(", "); // Liệt kê các loại sản phẩm
 
         return {
-          fulfillmentText: `Chúng tôi có bán sản phẩm ${productKeyword}. Các loại có sẵn: ${productVariants}.`,
+          fulfillmentText: `Chúng tôi có bán sản phẩm ${productKeyword}. Các loại có sẵn: ${productVariants}. Nếu bạn muốn biết thông tin về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
         };
       } else {
         return {
@@ -90,33 +91,53 @@ class WebhookService {
       }
     }
 
-    // Biểu thức chính quy để hỏi về một sản phẩm cụ thể (ví dụ: "laptop HP")
+    const productListQuestionPattern =
+      /(danh\s+sách\s+các\s+sản\s+phẩm\s+|liệt\s+kê\s+các\s+sản\s+phẩm\s+|danh\s+sách\s+|liệt\s+kê\s+|bạn\s+bán\s+những\s+loại\s+|cửa\s+hàng\s+bán\s+những\s+loại\s+)(.*?)(\s+nào)?$/i;
+
+    const productListMatch = productListQuestionPattern.exec(intentName);
+    if (productListMatch) {
+      const productKeyword = productListMatch[2].trim(); // Loại bỏ khoảng trắng thừa
+      console.log("Product Keyword:", productKeyword);
+
+      // Tìm kiếm sản phẩm theo tên chính xác
+      const products = await Product.find({
+        $or: [
+          { name: { $regex: productKeyword, $options: "i" } }, // Tìm theo tên sản phẩm
+          { type: { $regex: productKeyword, $options: "i" } }, // Tìm theo loại sản phẩm
+        ],
+      });
+
+      if (products && products.length > 0) {
+        // Liệt kê tất cả các sản phẩm có tên giống với từ khóa
+        const productVariants = products.map((p) => p.name).join(", ");
+        return {
+          fulfillmentText: `Danh sách các sản phẩm "${productKeyword}": ${productVariants}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
+        };
+      } else {
+        return {
+          fulfillmentText: `Xin lỗi, chúng tôi không có sản phẩm "${productKeyword}" trong kho.`,
+        };
+      }
+    }
+
     const specificProductQuestionPattern =
-      /(bạn\s+|cửa\s+hàng\s+có\s+bán\s+)([a-zA-Z0-9\s]+)(\s+k)?/i;
+      /(bạn\s+|cửa\s+hàng\s+có\s+bán\s+)(.*)(\s+không)?/i;
     const specificProductMatch =
       specificProductQuestionPattern.exec(intentName);
     if (specificProductMatch) {
-      const specificProductKeyword = specificProductMatch[2].trim(); // Lấy tên sản phẩm cụ thể từ câu hỏi
+      const specificProductKeyword = specificProductMatch[2].trim(); // Loại bỏ khoảng trắng thừa
       console.log("Specific Product Keyword:", specificProductKeyword);
 
       // Tìm kiếm sản phẩm theo tên chính xác
-      const specificProducts = await Product.findOne({
+      const specificProducts = await Product.find({
         name: { $regex: specificProductKeyword, $options: "i" }, // Tìm theo tên sản phẩm chính xác
       });
-      const specificProduct = await Product.findOne({
-        name: { $regex: specificProductKeyword, $options: "i" }, // Tìm theo tên sản phẩm chính xác
-      });
-      if (specificProduct) {
-        return {
-          fulfillmentText: `Chúng tôi có bán sản phẩm "${specificProduct.name}"`,
-        };
-      }
-      if (specificProducts.length > 0) {
+
+      if (specificProducts && specificProducts.length > 0) {
         // Liệt kê tất cả các sản phẩm có tên giống với từ khóa
         const productVariants = specificProducts.map((p) => p.name).join(", ");
-
         return {
-          fulfillmentText: `Chúng tôi có bán các sản phẩm "${specificProductKeyword}". Các sản phẩm có sẵn: ${productVariants}.`,
+          fulfillmentText: `Chúng tôi có bán các sản phẩm "${specificProductKeyword}". Các sản phẩm có sẵn: ${productVariants}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
         };
       } else {
         return {
@@ -137,7 +158,7 @@ class WebhookService {
           })
           .join(", ");
         return {
-          fulfillmentText: `Các sản phẩm bán chạy nhất của chúng tôi hiện tại là: ${bestSellerDetails}.`,
+          fulfillmentText: `Các sản phẩm bán chạy nhất của chúng tôi hiện tại là: ${bestSellerDetails}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
         };
       } else {
         return {
@@ -166,7 +187,7 @@ class WebhookService {
           .join(", ");
 
         return {
-          fulfillmentText: `Các sản phẩm được đánh giá tốt nhất của chúng tôi là: ${topRatedDetails}.`,
+          fulfillmentText: `Các sản phẩm được đánh giá tốt nhất của chúng tôi là: ${topRatedDetails}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
         };
       } else {
         return {
@@ -178,6 +199,7 @@ class WebhookService {
 
     const specificProductDetailPattern =
       /(chi\s+tết\s+sản\s+phẩm|thông\s+tin\s+sản\s+phẩm)\s+([a-zA-Z0-9\s]+)/i;
+
     const specificProductDetailMatch =
       specificProductDetailPattern.exec(intentName);
 
@@ -194,13 +216,19 @@ class WebhookService {
         // Kiểm tra số lượng còn hàng
         const availability =
           product.countInStock > 0
-            ? `Số lượng hiện tại còn ${product.countInStock} sản phẩm còn trong kho.`
-            : "Sản phẩm này đã hết hàng.";
+            ? `Số lượng hiện tại còn ${product.countInStock} sản phẩm trong kho.`
+            : "Sản phẩm này hiện đang hết hàng.";
 
         return {
           fulfillmentText: `Sản phẩm "${
             product.name
-          }" có giá ${product.price.toLocaleString()} VND. ${availability}`,
+          }" có giá ${product.price.toLocaleString()} VND. Hiện tại ${
+            product.name
+          } đang được giảm giá ${
+            product.discount
+          } %. Sản phẩm này được đánh giá ${product.rating}/5 sao với ${
+            product.review_count
+          } đánh giá từ khách hàng. ${availability}`,
         };
       } else {
         return {
@@ -208,13 +236,14 @@ class WebhookService {
         };
       }
     }
-    const goodbyePattern = /(tạm\s+biệt|chào\s+tạm\s+bệt|hẹn\s+lại|bye|see\s+you|good\s+bye|goodbye)/i;
+
+    const goodbyePattern =
+      /(tạm\s+biệt|chào\s+tạm\s+bệt|hẹn\s+lại|bye|see\s+you|good\s+bye|goodbye)/i;
     if (goodbyePattern.test(intentName)) {
-        return {
-          fulfillmentText: "Tạm biệt! Cảm ơn bạn đã ghé thăm. Hẹn gặp lại!",
-        };
-      }
-      
+      return {
+        fulfillmentText: "Tạm biệt! Cảm ơn bạn đã ghé thăm. Hẹn gặp lại!",
+      };
+    }
   }
 }
 

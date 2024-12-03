@@ -179,6 +179,29 @@ const getOneUser = (id) => {
   });
 };
 
+const getUserByEmail = (email) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = await User.findOne({
+        email: email,
+      });
+      if (user === null) {
+        resolve({
+          status: "OK",
+          message: "User does not exists",
+        });
+      }
+      resolve({
+        status: "OK",
+        message: "Get user successfully",
+        data: user,
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
 module.exports = {
   createUser,
   loginUser,
@@ -187,4 +210,5 @@ module.exports = {
   getAllUser,
   getOneUser,
   deleteManyUsers,
+  getUserByEmail,
 };

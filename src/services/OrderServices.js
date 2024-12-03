@@ -78,8 +78,8 @@ const createOrder = (newOrder) => {
       // Send confirmation email only if the order was created successfully
       // console.log('created order', createdOrder)
       if (createdOrder) {
-        console.log("check OK");
-        await EmailServices.sendMail(
+        // console.log("check OK");
+        await EmailServices.sendOrderConfirmationMail(
           orderItems,
           shippingPrice,
           totalPrice,
