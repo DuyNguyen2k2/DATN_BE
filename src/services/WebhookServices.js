@@ -216,7 +216,7 @@ class WebhookService {
         // Kiểm tra số lượng còn hàng
         const availability =
           product.countInStock > 0
-            ? `Số lượng hiện tại còn ${product.countInStock} sản phẩm trong kho.`
+            ? `Số lượng hiện tại còn ${product.countInStock} sản phẩm tại cửa hàng.`
             : "Sản phẩm này hiện đang hết hàng.";
 
         return {
@@ -226,8 +226,8 @@ class WebhookService {
             product.name
           } đang được giảm giá ${
             product.discount
-          } %. Sản phẩm này được đánh giá ${product.rating}/5 sao với ${
-            product.review_count
+          } %. Sản phẩm này được đánh giá ${product.rating || 0}/5 sao với ${
+            product.review_count || 0
           } đánh giá từ khách hàng. ${availability}`,
         };
       } else {
@@ -243,6 +243,92 @@ class WebhookService {
       return {
         fulfillmentText: "Tạm biệt! Cảm ơn bạn đã ghé thăm. Hẹn gặp lại!",
       };
+    }
+
+    const budgetPattern =
+      /(tầm\s+giá|tài\s+chính|giá\s+tiền)\s+(\d+[trmk]|[\d,]+)/i;
+
+    // Lấy danh sách các `type` từ cơ sở dữ liệu hoặc một cấu hình
+    const allProductTypes = await Product.distinct("type");
+    // console.log("type", allProductTypes);
+    // Xây dựng regex từ danh sách `type` sản phẩm
+    const typeRegex = new RegExp(`(${allProductTypes.join("|")})`, "i");
+    // console.log("type", typeRegex);
+    const budgetMatch = budgetPattern.exec(intentName);
+    const typeMatch = typeRegex.exec(intentName);
+
+    if (budgetMatch) {
+      const budgetString = budgetMatch[2].trim(); // Lấy giá trị ngân sách
+      let budget = 0;
+
+      // Kiểm tra và xử lý đơn vị tiền tệ
+      if (budgetString.toLowerCase().includes("tr")) {
+        budget =
+          parseFloat(
+            budgetString.toLowerCase().replace("tr", "").replace(",", "").trim()
+          ) * 1000000;
+      } else if (budgetString.toLowerCase().includes("m")) {
+        budget =
+          parseFloat(
+            budgetString.toLowerCase().replace("m", "").replace(",", "").trim()
+          ) * 1000000;
+      } else if (budgetString.toLowerCase().includes("k")) {
+        budget =
+          parseFloat(
+            budgetString.toLowerCase().replace("k", "").replace(",", "").trim()
+          ) * 1000;
+      } else {
+        budget = parseFloat(budgetString.replace(",", "").trim());
+      }
+
+      // Đảm bảo giá trị ngân sách là số hợp lệ
+      if (isNaN(budget) || budget <= 0) {
+        return {
+          fulfillmentText: `Xin lỗi, tôi không hiểu rõ ngân sách bạn đưa ra. Bạn vui lòng cung cấp tầm giá hợp lệ nhé!`,
+        };
+      }
+
+      // Lấy `type` sản phẩm từ câu hỏi, nếu không có, tìm tất cả
+      const productType = typeMatch ? typeMatch[1].trim().toLowerCase() : null;
+      // console.log('productType', productType)
+      // Tìm sản phẩm theo ngân sách và loại
+      const query = {
+        price: { $lte: budget }, // Giá <= ngân sách
+      };
+
+      if (productType) {
+        query.type = { $regex: new RegExp(`^${productType}$`, "i") }; // Thêm điều kiện loại sản phẩm nếu xác định được
+      }
+
+      const products = await Product.find(query);
+      // console.log('products', products);
+      if (products.length > 0) {
+        // Gợi ý danh sách sản phẩm phù hợp
+        const productList = products
+          .map(
+            (product) =>
+              `- ${
+                product.name
+              } (Giá: ${product.price.toLocaleString()} VND, đang giảm giá ${
+                product.discount
+              }%, còn ${(product.price - (product.price * product.discount)/100).toLocaleString()} VND, hiện đang ${
+                product.countInStock > 0 ? "còn hàng" : "hết hàng"
+              })`
+          )
+          .join("\n");
+
+        return {
+          fulfillmentText: `Dưới đây là các sản phẩm trong tầm giá ${budget.toLocaleString()} VND ${
+            productType ? `thuộc loại "${productType}"` : ""
+          }:\n${productList}`,
+        };
+      } else {
+        return {
+          fulfillmentText: `Xin lỗi, chúng tôi không tìm thấy sản phẩm nào ${
+            productType ? `thuộc loại "${productType}"` : ""
+          } trong tầm giá ${budget.toLocaleString()} VND.`,
+        };
+      }
     }
   }
 }
