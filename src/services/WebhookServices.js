@@ -1,334 +1,354 @@
 const Product = require("../models/ProductModel");
+
 class WebhookService {
   static async processWebhook(requestBody) {
     // Xử lý dữ liệu từ Dialogflow
     // Kiểm tra intent và gửi phản hồi phù hợp
     const intentName = requestBody.queryResult.queryText.toLowerCase();
-    const responses = {
-      greeting: "Xin chào! Chúng tôi có thể giúp gì cho bạn?",
-      default: "Chào bạn! Cảm ơn bạn đã liên hệ.",
-      //   productInfo: "Sản phẩm này có giá 1000 đồng và đang còn sẵn hàng.",
-      priceQuery: "Bạn muốn hỏi giá của sản phẩm nào?",
-    };
-    // Kiểm tra nếu intent là 'Xin Chào' và trả lời
-    if (["hello", "hi", "xin chào", "chào", "chào bạn"].includes(intentName)) {
-      return {
-        fulfillmentText: responses.greeting,
-      };
-    }
-    if (
-      [
-        "chính sách đổi trả",
-        "tôi có thể đổi sản phẩm đã mua không?",
-        "đổi sản phẩm",
-        "chính sách hoàn tiền",
-      ].includes(intentName.toLowerCase())
-    ) {
-      return {
-        fulfillmentText:
-          "Chúng tôi có chính sách đổi trả trong vòng 30 ngày kể từ ngày nhận hàng nếu sản phẩm bị lỗi do kĩ thuật hoặc vận chuyển.",
-      };
-    }
-    const productQuestionPattern =
-      /cửa hàng.*kinh doanh|bạn.*kinh doanh|cửa hàng.*bán gì|bạn.*bán gì|cửa hàng.*bán sản phẩm|bạn.*bán sản phẩm/i;
+    const productName = requestBody.queryResult.parameters.product;
+    const typeProduct = requestBody.queryResult.parameters.typeProduct;
+    let price = requestBody.queryResult.parameters.price;
+    const type = requestBody.queryResult.parameters.type;
+    console.log("typeProduct", typeProduct);
+    // let inforProduct = requestBody.queryResult.parameters.infor;
+    // console.log("productName", productName);
 
-    // Kiểm tra xem câu hỏi có phù hợp với biểu thức chính quy không
-    if (productQuestionPattern.test(intentName)) {
-      return {
-        fulfillmentText:
-          "Chúng tôi hiện đang bán các sản phẩm công nghệ và đồ trang trí nhé.",
-      };
+    const isPriceQuery = intentName.includes("giá");
+    const isImageQuery = intentName.includes("ảnh");
+    const isInforQuery =
+      intentName.includes("thông tin") || intentName.includes("chi tiết");
+    const isBestSeller =
+      intentName.includes("bán chạy") || intentName.includes("best seller");
+    const isToprated =
+      intentName.includes("đánh giá") || intentName.includes("rate");
+
+    const isTypeProduct =
+      intentName.includes("danh sách") ||
+      intentName.includes("liệt kê") ||
+      intentName.includes("có bán");
+    console.log("typeProduct", isTypeProduct);
+
+    if (Array.isArray(price)) {
+      price = price[0]; // Lấy phần tử đầu tiên trong mảng nếu 'price' là một mảng
     }
 
-    const priceQuestionRegex =
-      /(giá\s+của|có\s+giá\s+bao\s+nhiêu|giá\s+nhiêu)\s+(sản\s+phẩm\s+)?([a-zA-Z0-9\s]+)\s*(là\s+bao\s+nhiêu\?|\?)?/i;
-    const matchPrice = priceQuestionRegex.exec(intentName);
-    if (matchPrice) {
-      const productKeyword = matchPrice[3].trim(); // Tên sản phẩm từ câu hỏi (có thể chỉ là phần tên sản phẩm)
-      // Tìm kiếm sản phẩm trong cơ sở dữ liệu theo từ khóa
-      const products = await Product.find({
-        name: { $regex: productKeyword, $options: "i" },
-      });
+    // console.log("Price:", price); // In giá trị của parameter 'price'
+    // console.log("Type:", type); // In giá trị của parameter 'type'
+    // console.log(isToprated);
+    if (isPriceQuery && productName) {
+      try {
+        // Tìm sản phẩm trong MongoDB
+        const product = await Product.findOne({
+          name: new RegExp(productName, "i"),
+        });
+        // console.log('product', product)
+        if (product) {
+          // Trả về giá của sản phẩm
 
-      if (products.length > 0) {
-        const product = products[0]; // Giả sử lấy sản phẩm đầu tiên trong danh sách
+          // Trả về văn bản và ảnh của sản phẩm trong các fulfillmentMessages
+          return {
+            // Phần trả về tin nhắn rich message
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [
+                    product.discount > 0
+                      ? `Giá của **${
+                          product.name
+                        }** là ${product.price.toLocaleString()} VND. Hiện đang giảm giá **${
+                          product.discount
+                        }%**, còn **${(
+                          product.price *
+                          (1 - product.discount / 100)
+                        ).toLocaleString()} VND**.`
+                      : `Giá của **${
+                          product.name
+                        }** là ${product.price.toLocaleString()} VND.`,
+                  ],
+                },
+              },
+            ],
+          };
+        } else {
+          return {
+            fulfillmentText:
+              "Sản phẩm không tìm thấy hoặc giá chưa được cập nhật.",
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
-          fulfillmentText: `Giá của sản phẩm ${
-            product.name
-          } là ${product.price.toLocaleString()} VND.`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp với từ khóa "${productKeyword}".`,
+          fulfillmentText: "Có lỗi xảy ra khi lấy thông tin sản phẩm.",
         };
       }
-    }
-
-    const availabilityQuestionRegex =
-      /(bạn\s+|cửa\s+hàng\s+có\s+bán\s+|có\s+bán\s+)(sản\s+phẩm\s+)?([a-zA-Z0-9\s]+)\s*(không|\?|\s)*$/i;
-    const availabilityMatch = availabilityQuestionRegex.exec(intentName);
-    if (availabilityMatch) {
-      const productKeyword = availabilityMatch[3].trim();
-      console.log("Product Keyword for Availability:", productKeyword);
-
-      const products = await Product.find({
-        $or: [
-          { name: { $regex: productKeyword, $options: "i" } }, // Tìm theo tên sản phẩm
-          { type: { $regex: productKeyword, $options: "i" } }, // Tìm theo loại sản phẩm
-        ],
-      });
-
-      if (products.length > 0) {
-        const productVariants = products.map((p) => p.name).join(", "); // Liệt kê các loại sản phẩm
-
+    } else if (isImageQuery && productName) {
+      try {
+        // Tìm sản phẩm trong MongoDB
+        const product = await Product.findOne({
+          name: new RegExp(productName, "i"),
+        });
+        // console.log('product', product)
+        if (product) {
+          // Trả về ảnh của sản phẩm
+          return {
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [`Dưới đây là ảnh của ${product.name}`],
+                },
+              },
+              {
+                payload: {
+                  richContent: [
+                    [
+                      {
+                        type: "image",
+                        rawUrl: product.image, // URL của ảnh từ backend
+                        accessibilityText: `Ảnh của ${product.name}`,
+                      },
+                    ],
+                  ],
+                },
+              },
+            ],
+          };
+        }
+      } catch {
+        console.error(error);
         return {
-          fulfillmentText: `Chúng tôi có bán sản phẩm ${productKeyword}. Các loại có sẵn: ${productVariants}. Nếu bạn muốn biết thông tin về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, chúng tôi không bán sản phẩm "${productKeyword}".`,
-        };
-      }
-    }
-
-    const productListQuestionPattern =
-      /(danh\s+sách\s+các\s+sản\s+phẩm\s+|liệt\s+kê\s+các\s+sản\s+phẩm\s+|danh\s+sách\s+|liệt\s+kê\s+|bạn\s+bán\s+những\s+loại\s+|cửa\s+hàng\s+bán\s+những\s+loại\s+)(.*?)(\s+nào)?$/i;
-
-    const productListMatch = productListQuestionPattern.exec(intentName);
-    if (productListMatch) {
-      const productKeyword = productListMatch[2].trim(); // Loại bỏ khoảng trắng thừa
-      console.log("Product Keyword:", productKeyword);
-
-      // Tìm kiếm sản phẩm theo tên chính xác
-      const products = await Product.find({
-        $or: [
-          { name: { $regex: productKeyword, $options: "i" } }, // Tìm theo tên sản phẩm
-          { type: { $regex: productKeyword, $options: "i" } }, // Tìm theo loại sản phẩm
-        ],
-      });
-
-      if (products && products.length > 0) {
-        // Liệt kê tất cả các sản phẩm có tên giống với từ khóa
-        const productVariants = products.map((p) => p.name).join(", ");
-        return {
-          fulfillmentText: `Danh sách các sản phẩm "${productKeyword}": ${productVariants}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, chúng tôi không có sản phẩm "${productKeyword}" trong kho.`,
+          fulfillmentText: "Có lỗi xảy ra khi lấy thông tin sản phẩm.",
         };
       }
-    }
-
-    const specificProductQuestionPattern =
-      /(bạn\s+|cửa\s+hàng\s+có\s+bán\s+)(.*)(\s+không)?/i;
-    const specificProductMatch =
-      specificProductQuestionPattern.exec(intentName);
-    if (specificProductMatch) {
-      const specificProductKeyword = specificProductMatch[2].trim(); // Loại bỏ khoảng trắng thừa
-      console.log("Specific Product Keyword:", specificProductKeyword);
-
-      // Tìm kiếm sản phẩm theo tên chính xác
-      const specificProducts = await Product.find({
-        name: { $regex: specificProductKeyword, $options: "i" }, // Tìm theo tên sản phẩm chính xác
-      });
-
-      if (specificProducts && specificProducts.length > 0) {
-        // Liệt kê tất cả các sản phẩm có tên giống với từ khóa
-        const productVariants = specificProducts.map((p) => p.name).join(", ");
+    } else if (isInforQuery && productName) {
+      try {
+        // Tìm sản phẩm trong MongoDB
+        const product = await Product.findOne({
+          name: new RegExp(productName, "i"),
+        });
+        // console.log('product', product)
+        if (product) {
+          // Trả về thông tin sản phẩm
+          return {
+            fulfillmentMessages: [
+              {
+                payload: {
+                  richContent: [
+                    [
+                      {
+                        type: "image",
+                        rawUrl: product.image, // URL của ảnh từ backend
+                        accessibilityText: `Ảnh của ${product.name}`,
+                      },
+                      {
+                        type: "info",
+                        title: `${product.name}`, // Tên sản phẩm làm tiêu đề
+                        subtitle: `
+                          Giá gốc: ${product.price.toLocaleString()} VND
+                          Giảm giá: ${product.discount}%
+                          Giá sau giảm: ${(product.price * (1 - product.discount / 100)).toLocaleString()} VND
+                          Được đánh giá: ${product.rating || 0}/5 sao bởi ${product.review_count || 0} người dùng
+                          Tình trạng: ${product.countInStock > 0 ? "Đang còn hàng" : "Đã hết hàng"}
+                        `, // Nội dung thông tin sản phẩm
+                      },
+                    ],
+                  ],
+                },
+              },
+            ]
+          };
+        } else {
+          return {
+            fulfillmentText:
+              "Sản phẩm không tìm thấy hoặc thông tin chưa được cập nhật.",
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
-          fulfillmentText: `Chúng tôi có bán các sản phẩm "${specificProductKeyword}". Các sản phẩm có sẵn: ${productVariants}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, chúng tôi không có sản phẩm "${specificProductKeyword}" trong kho.`,
+          fulfillmentText: "Có lỗi xảy ra khi lấy thông tin sản phẩm.",
         };
       }
-    }
+    } else if (isBestSeller) {
+      try {
+        const topProducts = await Product.find()
+          .sort({ selled: -1 }) // Sắp xếp giảm dần theo trường 'selled'
+          .limit(5); // Lấy top 5 sản phẩm
 
-    const bestSellerQuestionPattern =
-      /(?:sản\s*phẩm|cửa\s*hàng).*(bán\s*chạy|best\s*seller)|best\s*seller.*(sản\s*phẩm|cửa\s*hàng)/i;
-    if (bestSellerQuestionPattern.test(intentName)) {
-      // Tìm các sản phẩm bán chạy nhất, có thể theo số lượng bán
-      const bestSellers = await Product.find().sort({ selled: -1 }).limit(5); // Giả sử `salesCount` là trường thể hiện số lượng bán
-      if (bestSellers.length > 0) {
-        const bestSellerDetails = bestSellers
-          .map((p) => {
-            return `${p.name} - ${p.selled} lượt bán`;
-          })
-          .join(", ");
+        if (topProducts.length > 0) {
+          const productList = topProducts
+            .map((product) => `+ ${product.name} - ${product.selled} lượt bán`)
+            .join("\n"); // Tạo danh sách sản phẩm dưới dạng chuỗi
+
+          return {
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [
+                    "Sau đây là top 5 sản phẩm bán chạy nhất tại cửa hàng:\n" +
+                      productList,
+                  ],
+                },
+              },
+            ],
+          };
+        } else {
+          return {
+            fulfillmentText: "Hiện tại chưa có sản phẩm bán chạy nào.",
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
-          fulfillmentText: `Các sản phẩm bán chạy nhất của chúng tôi hiện tại là: ${bestSellerDetails}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
+          fulfillmentText: "Có lỗi xảy ra khi lấy danh sách sản phẩm bán chạy.",
         };
-      } else {
+      }
+    } else if (isToprated) {
+      try {
+        const topProducts = await Product.find()
+          .sort({ rating: -1 }) // Sắp xếp giảm dần theo trường 'selled'
+          .limit(5); // Lấy top 5 sản phẩm
+
+        if (topProducts.length > 0) {
+          const productList = topProducts
+            .map(
+              (product) =>
+                `+ ${product.name} - ${product.rating || 0}/5 sao (${
+                  product.review_count || 0
+                } lượt đánh giá)`
+            )
+            .join("\n"); // Tạo danh sách sản phẩm dưới dạng chuỗi
+
+          return {
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [
+                    "Sau đây là top 5 sản phẩm có đánh giá cao nhất tại cửa hàng:\n" +
+                      productList,
+                  ],
+                },
+              },
+            ],
+          };
+        } else {
+          return {
+            fulfillmentText: "Hiện tại chưa có sản phẩm được đánh giá cao nào.",
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
           fulfillmentText:
-            "Xin lỗi, chúng tôi không có thông tin về sản phẩm bán chạy nhất ngay bây giờ.",
+            "Có lỗi xảy ra khi lấy danh sách sản phẩm có đánh giá cao.",
         };
       }
-    }
+    } else if (price && type) {
+      // Tiến hành xử lý với giá trị của price và type
+      // Ví dụ: Truy vấn sản phẩm theo giá và loại sản phẩm
+      try {
+        // Tìm sản phẩm có giá <= price (sau giảm giá)
+        const products = await Product.find({
+          type: { $regex: new RegExp(type, "i") },
+        });
 
-    const topRatedQuestionPattern =
-      /(sản\s+phẩm\s+(tốt\s+nhất|được\s+đánh\s+giá\s+tốt|đánh\s+giá\s+cao|cao\s+nhất|sao\s+cao\s+nhất)|cửa\s*hàng\s+(sản\s+phẩm\s+|các\s+|đánh\s+giá\s+)?(tốt\s+nhất|đánh\s+giá\s+tốt|cao\s+nhất|đánh\s+giá\s+cao|sao\s+cao\s+nhất)|top\s+rated|best\s+product|highest\s+rated)/i;
-    if (topRatedQuestionPattern.test(intentName)) {
-      // Tìm các sản phẩm có đánh giá cao nhất
-      const topRatedProducts = await Product.find()
-        .sort({ rating: -1 })
-        .limit(5); // Giả sử `rating` là trường thể hiện đánh giá
-      if (topRatedProducts.length > 0) {
-        // Tạo danh sách các sản phẩm với số sao
-        const topRatedDetails = topRatedProducts
-          .map((p) => {
-            const ratingStars = p.rating
-              ? `${p.rating}/5 (${p.review_count || 0} đánh giá)`
-              : "Chưa có đánh giá";
-            return `${p.name} - ${ratingStars}`;
-          })
-          .join(", ");
+        // Lọc các sản phẩm có giá sau giảm <= ngân sách của người dùng
+        const filteredProducts = products.filter((product) => {
+          const finalPrice = product.discount
+            ? product.price - (product.price * product.discount) / 100
+            : product.price;
+          return finalPrice <= parseFloat(price); // So sánh giá sau giảm với ngân sách
+        });
 
+        if (filteredProducts.length > 0) {
+          // Trả về danh sách sản phẩm phù hợp với yêu cầu
+          const productList = filteredProducts
+            .map((product) => {
+              const price = parseFloat(product.price); // Đảm bảo giá là số
+              const discount = parseFloat(product.discount); // Đảm bảo giảm giá là số
+
+              // Kiểm tra nếu giá trị hợp lệ
+              if (isNaN(price) || (discount && isNaN(discount))) {
+                return `- ${product.name} (Giá không hợp lệ)`;
+              }
+
+              const finalPrice = discount
+                ? price - (price * discount) / 100
+                : price;
+
+              return `- ${product.name} (Giá: ${price.toLocaleString()} VND. ${
+                discount
+                  ? `Hiện đang giảm giá: ${discount}% còn ${finalPrice.toLocaleString()} VND`
+                  : ""
+              })`;
+            })
+            .join("\n");
+
+          return {
+            fulfillmentText: `Dưới đây là các sản phẩm phù hợp với giá và loại bạn yêu cầu:\n${productList}`,
+          };
+        } else {
+          return {
+            fulfillmentText: `Không tìm thấy sản phẩm nào với giá và loại bạn yêu cầu.`,
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
-          fulfillmentText: `Các sản phẩm được đánh giá tốt nhất của chúng tôi là: ${topRatedDetails}. Nếu bạn muốn biết thông tin chi tiết về sản phẩm nào hãy nhắn "thông tin sản phẩm + tên sản phẩm"`,
-        };
-      } else {
-        return {
-          fulfillmentText:
-            "Xin lỗi, chúng tôi không có thông tin về sản phẩm được đánh giá tốt nhất ngay bây giờ.",
+          fulfillmentText: "Có lỗi xảy ra khi tìm kiếm sản phẩm.",
         };
       }
-    }
-
-    const specificProductDetailPattern =
-      /(chi\s+tết\s+sản\s+phẩm|thông\s+tin\s+sản\s+phẩm)\s+([a-zA-Z0-9\s]+)/i;
-
-    const specificProductDetailMatch =
-      specificProductDetailPattern.exec(intentName);
-
-    if (specificProductDetailMatch) {
-      const productKeyword = specificProductDetailMatch[2].trim(); // Lấy tên sản phẩm từ câu hỏi
-      console.log("Product Keyword for Details:", productKeyword);
-
-      // Tìm kiếm sản phẩm trong cơ sở dữ liệu theo tên sản phẩm
-      const product = await Product.findOne({
-        name: { $regex: productKeyword, $options: "i" },
-      });
-
-      if (product) {
-        // Kiểm tra số lượng còn hàng
-        const availability =
-          product.countInStock > 0
-            ? `Số lượng hiện tại còn ${product.countInStock} sản phẩm tại cửa hàng.`
-            : "Sản phẩm này hiện đang hết hàng.";
-
-        return {
-          fulfillmentText: `Sản phẩm "${
-            product.name
-          }" có giá ${product.price.toLocaleString()} VND. Hiện tại ${
-            product.name
-          } đang được giảm giá ${
-            product.discount
-          } %. Sản phẩm này được đánh giá ${product.rating || 0}/5 sao với ${
-            product.review_count || 0
-          } đánh giá từ khách hàng. ${availability}`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, chúng tôi không tìm thấy sản phẩm nào tên "${productKeyword}".`,
-        };
-      }
-    }
-
-    const goodbyePattern =
-      /(tạm\s+biệt|chào\s+tạm\s+bệt|hẹn\s+lại|bye|see\s+you|good\s+bye|goodbye)/i;
-    if (goodbyePattern.test(intentName)) {
-      return {
-        fulfillmentText: "Tạm biệt! Cảm ơn bạn đã ghé thăm. Hẹn gặp lại!",
-      };
-    }
-
-    const budgetPattern =
-      /(tầm\s+giá|tài\s+chính|giá\s+tiền)\s+(\d+[trmk]|[\d,]+)/i;
-
-    // Lấy danh sách các `type` từ cơ sở dữ liệu hoặc một cấu hình
-    const allProductTypes = await Product.distinct("type");
-    // console.log("type", allProductTypes);
-    // Xây dựng regex từ danh sách `type` sản phẩm
-    const typeRegex = new RegExp(`(${allProductTypes.join("|")})`, "i");
-    // console.log("type", typeRegex);
-    const budgetMatch = budgetPattern.exec(intentName);
-    const typeMatch = typeRegex.exec(intentName);
-
-    if (budgetMatch) {
-      const budgetString = budgetMatch[2].trim(); // Lấy giá trị ngân sách
-      let budget = 0;
-
-      // Kiểm tra và xử lý đơn vị tiền tệ
-      if (budgetString.toLowerCase().includes("tr")) {
-        budget =
-          parseFloat(
-            budgetString.toLowerCase().replace("tr", "").replace(",", "").trim()
-          ) * 1000000;
-      } else if (budgetString.toLowerCase().includes("m")) {
-        budget =
-          parseFloat(
-            budgetString.toLowerCase().replace("m", "").replace(",", "").trim()
-          ) * 1000000;
-      } else if (budgetString.toLowerCase().includes("k")) {
-        budget =
-          parseFloat(
-            budgetString.toLowerCase().replace("k", "").replace(",", "").trim()
-          ) * 1000;
-      } else {
-        budget = parseFloat(budgetString.replace(",", "").trim());
-      }
-
-      // Đảm bảo giá trị ngân sách là số hợp lệ
-      if (isNaN(budget) || budget <= 0) {
-        return {
-          fulfillmentText: `Xin lỗi, tôi không hiểu rõ ngân sách bạn đưa ra. Bạn vui lòng cung cấp tầm giá hợp lệ nhé!`,
-        };
-      }
-
-      // Lấy `type` sản phẩm từ câu hỏi, nếu không có, tìm tất cả
-      const productType = typeMatch ? typeMatch[1].trim().toLowerCase() : null;
-      // console.log('productType', productType)
-      // Tìm sản phẩm theo ngân sách và loại
-      const query = {
-        price: { $lte: budget }, // Giá <= ngân sách
-      };
-
-      if (productType) {
-        query.type = { $regex: new RegExp(`^${productType}$`, "i") }; // Thêm điều kiện loại sản phẩm nếu xác định được
-      }
-
-      const products = await Product.find(query);
-      // console.log('products', products);
-      if (products.length > 0) {
-        // Gợi ý danh sách sản phẩm phù hợp
-        const productList = products
-          .map(
-            (product) =>
-              `- ${
+    } else if (isTypeProduct && typeProduct) {
+      try {
+        const products = await Product.find({
+          $or:[
+            {type: new RegExp(typeProduct, "i")},
+            {name: new RegExp(typeProduct, "i")}
+          ]
+          
+        });
+        if (products.length > 0) {
+          // Liệt kê các sản phẩm theo yêu cầu
+          const productList = products
+            .map((product) => {
+              const stockStatus =
+                product.countInStock > 0 ? "Còn hàng" : "Hết hàng";
+              return `+ ${
                 product.name
-              } (Giá: ${product.price.toLocaleString()} VND, đang giảm giá ${
-                product.discount
-              }%, còn ${(product.price - (product.price * product.discount)/100).toLocaleString()} VND, hiện đang ${
-                product.countInStock > 0 ? "còn hàng" : "hết hàng"
-              })`
-          )
-          .join("\n");
-
+              } giá ${product.price.toLocaleString()} VND, hiện đang ${stockStatus}`;
+            })
+            .join("\n");
+          return {
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [
+                    `Cửa hàng có bán những sản phẩm loại **${typeProduct}** sau:\n${productList}`,
+                  ],
+                },
+              },
+            ],
+          };
+        } else {
+          return {
+            fulfillmentText: `Không tìm thấy sản phẩm nào thuộc loại **${typeProduct}**.`,
+          };
+        }
+      } catch (error) {
+        console.error(error);
         return {
-          fulfillmentText: `Dưới đây là các sản phẩm trong tầm giá ${budget.toLocaleString()} VND ${
-            productType ? `thuộc loại "${productType}"` : ""
-          }:\n${productList}`,
-        };
-      } else {
-        return {
-          fulfillmentText: `Xin lỗi, chúng tôi không tìm thấy sản phẩm nào ${
-            productType ? `thuộc loại "${productType}"` : ""
-          } trong tầm giá ${budget.toLocaleString()} VND.`,
+          fulfillmentText: "Có lỗi xảy ra khi tìm kiếm sản phẩm.",
         };
       }
+    } 
+    
+    
+    
+    
+    
+    else {
+      return {
+        fulfillmentText: "Tôi không hiểu câu hỏi của bạn. Vui lòng thử lại.",
+      };
     }
   }
 }

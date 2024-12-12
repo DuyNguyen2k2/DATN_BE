@@ -5,6 +5,7 @@ class WebhookController {
     try {
         // console.log('req', req.body);
         const response = await WebhookServices.processWebhook(req.body);
+        // console.log('response', req.body)
         return res.json(response);
       } catch (error) {
         console.error('Error handling webhook:', error);
