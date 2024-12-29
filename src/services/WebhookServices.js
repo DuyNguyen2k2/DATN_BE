@@ -1,3 +1,4 @@
+
 const Product = require("../models/ProductModel");
 
 class WebhookService {
@@ -9,7 +10,7 @@ class WebhookService {
     const typeProduct = requestBody.queryResult.parameters.typeProduct;
     let price = requestBody.queryResult.parameters.price;
     const type = requestBody.queryResult.parameters.type;
-    console.log("typeProduct", typeProduct);
+    // console.log("typeProduct", typeProduct);
     // let inforProduct = requestBody.queryResult.parameters.infor;
     // console.log("productName", productName);
 
@@ -26,7 +27,7 @@ class WebhookService {
       intentName.includes("danh sách") ||
       intentName.includes("liệt kê") ||
       intentName.includes("có bán");
-    console.log("typeProduct", isTypeProduct);
+    // console.log("typeProduct", isTypeProduct);
 
     if (Array.isArray(price)) {
       price = price[0]; // Lấy phần tử đầu tiên trong mảng nếu 'price' là một mảng
